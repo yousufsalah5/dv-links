@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 
 const codecPro = localFont({
@@ -32,8 +33,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${codecPro.variable} h-full`}>
-      <body className="min-h-full">{children}</body>
+    // `dark` is always on — the brand has no light mode. It makes shadcn's
+    // `dark:` variants resolve correctly.
+    <html lang="en" className={cn("dark h-full", codecPro.variable)}>
+      <body className="min-h-full font-sans">{children}</body>
     </html>
   );
 }
