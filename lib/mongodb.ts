@@ -14,8 +14,17 @@ const globalForMongo = globalThis as typeof globalThis & {
   _mongoClientPromise?: Promise<MongoClient>;
 };
 
+// Each Cloudflare Worker isolate is short-lived and handles few concurrent
+// requests, so a large connection pool just wastes Atlas connections. The
+// short server-selection timeout means a database problem surfaces as a quick
+// error rather than hanging the page for 30 seconds.
 const clientPromise =
-  globalForMongo._mongoClientPromise ?? new MongoClient(uri).connect();
+  globalForMongo._mongoClientPromise ??
+  new MongoClient(uri, {
+    maxPoolSize: 1,
+    minPoolSize: 0,
+    serverSelectionTimeoutMS: 5000,
+  }).connect();
 
 if (process.env.NODE_ENV !== "production") {
   globalForMongo._mongoClientPromise = clientPromise;
