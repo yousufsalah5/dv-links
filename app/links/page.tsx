@@ -105,7 +105,7 @@ function LinkButton({ link }: { link: Link }) {
         className={`size-4 shrink-0 transition-all duration-200 group-hover:-translate-y-px group-hover:translate-x-px ${
           link.featured
             ? "text-dv-teal"
-            : "text-dv-grey/40 group-hover:text-dv-grey"
+            : "text-dv-grey/40 group-hover:text-dv-teal"
         }`}
       />
     </a>
