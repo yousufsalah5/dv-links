@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Daman Virtual — Links
 
-## Getting Started
+A link-in-bio page for Daman Virtual, plus a private dashboard for managing the
+links without touching code.
 
-First, run the development server:
+- **`/links`** — the public page people see. Mobile-first, brand-styled.
+- **`/admin`** — password-protected dashboard to add, edit, reorder and
+  delete links.
+
+Links live in MongoDB, so anything changed in the dashboard shows up on the
+public page on the next load.
+
+## Running it on your Mac
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open <http://localhost:3000/links>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Filling the database with starter links
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run seed
+```
 
-## Learn More
+Safe to run more than once — it never overwrites links you have edited.
 
-To learn more about Next.js, take a look at the following resources:
+## Settings and passwords
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All secrets live in `.env.local`, which is deliberately **not** committed to
+GitHub. It holds:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Name             | What it does                                          |
+| ---------------- | ----------------------------------------------------- |
+| `MONGODB_URI`    | Connection to the MongoDB Atlas database               |
+| `MONGODB_DB`     | Database name (`damanvirtual`)                         |
+| `ADMIN_PASSWORD` | The password for `/admin` — change this to your own    |
+| `AUTH_SECRET`    | Random value that signs the login cookie; leave alone  |
 
-## Deploy on Vercel
+If you set this project up on another machine, recreate `.env.local` there.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Brand assets
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/fonts/` — Codec Pro, the Daman Virtual brand typeface.
+  **This is a commercial font.** Using it on a public website needs a webfont
+  licence, which is separate from a desktop licence. Confirm the licence before
+  the site goes live.
+- `public/brand/dv-mark.png` — the logo mark, taken from the approved
+  white-on-dark logo artwork.
+
+## Tech
+
+Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · MongoDB Atlas
