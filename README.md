@@ -44,9 +44,8 @@ If you set this project up on another machine, recreate `.env.local` there.
 ## Brand assets
 
 - `app/fonts/` — Codec Pro, the Daman Virtual brand typeface.
-  **This is a commercial font.** Using it on a public website needs a webfont
-  licence, which is separate from a desktop licence. Confirm the licence before
-  the site goes live.
+  This is a commercial typeface; Daman Virtual holds the licence covering its
+  use here.
 - `public/brand/dv-mark.png` — the logo mark, taken from the approved
   white-on-dark logo artwork.
 
