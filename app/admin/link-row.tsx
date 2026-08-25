@@ -107,25 +107,35 @@ export function LinkRow({
       </div>
 
       {editing ? (
-        <form
-          action={formAction}
-          className="flex flex-col gap-4 border-t border-dv-line px-4 py-5"
-        >
-          <input type="hidden" name="id" value={link.id} />
-          <LinkFields link={link} />
+        <div className="border-t border-dv-line px-4 py-5">
+          <form action={formAction} className="flex flex-col gap-4">
+            <input type="hidden" name="id" value={link.id} />
+            <LinkFields link={link} />
 
-          <div className="flex items-center gap-2">
             <button
               type="submit"
               disabled={pending}
-              className={`${primaryButtonClass} w-auto`}
+              className={`${primaryButtonClass} w-auto self-start`}
             >
               {pending ? "Saving…" : "Save changes"}
             </button>
 
+            {state.error ? (
+              <p role="alert" className="text-xs text-destructive">
+                {state.error}
+              </p>
+            ) : null}
+          </form>
+
+          {/* Deleting is its own form, and it has to sit outside the edit form
+              above — a form nested inside another form is invalid HTML and
+              silently never submits. */}
+          <div className="mt-5 flex items-center gap-2 border-t border-dv-line pt-4">
             {confirmingDelete ? (
               <>
-                <span className="text-xs text-dv-grey">Delete for good?</span>
+                <span className="text-xs text-dv-grey">
+                  Delete “{link.title}” for good?
+                </span>
                 <DeleteButton id={link.id} />
                 <button
                   type="button"
@@ -139,19 +149,13 @@ export function LinkRow({
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
-                className={`${ghostButtonClass} ml-auto hover:!text-destructive`}
+                className={`${ghostButtonClass} hover:!text-destructive`}
               >
-                Delete
+                Delete this link
               </button>
             )}
           </div>
-
-          {state.error ? (
-            <p role="alert" className="text-xs text-destructive">
-              {state.error}
-            </p>
-          ) : null}
-        </form>
+        </div>
       ) : null}
     </div>
   );

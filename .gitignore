@@ -46,3 +46,6 @@ next-env.d.ts
 cloudflare-env.d.ts
 .dev.vars
 .dev.vars.*
+
+# local test database
+/.local-db/
