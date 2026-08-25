@@ -1,19 +1,12 @@
-import { ObjectId, type Collection } from "mongodb";
-import { getDb } from "./mongodb";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-/** Shape of a link as stored in MongoDB. */
-export type LinkDoc = {
-  _id: ObjectId;
-  title: string;
-  url: string;
-  icon?: string;
-  /** An uploaded square image, held as a data URI. Takes priority over `icon`. */
-  image?: string;
-  order: number;
-  featured: boolean;
-};
+/**
+ * Every database call in the project goes through this file. Swapping the
+ * storage behind it — as we did moving off MongoDB — means changing this file
+ * and nothing else.
+ */
 
-/** Shape of a link once handed to a React component (`_id` as a plain string). */
+/** A link, as the rest of the app sees it. */
 export type Link = {
   id: string;
   title: string;
@@ -24,32 +17,6 @@ export type Link = {
   featured: boolean;
 };
 
-export const LINKS_COLLECTION = "links";
-
-export async function linksCollection(): Promise<Collection<LinkDoc>> {
-  const db = await getDb();
-  return db.collection<LinkDoc>(LINKS_COLLECTION);
-}
-
-function serialize(doc: LinkDoc): Link {
-  return {
-    id: doc._id.toString(),
-    title: doc.title,
-    url: doc.url,
-    icon: doc.icon,
-    image: doc.image,
-    order: doc.order,
-    featured: doc.featured,
-  };
-}
-
-/** All links, lowest `order` first. */
-export async function getLinks(): Promise<Link[]> {
-  const links = await linksCollection();
-  const docs = await links.find({}).sort({ order: 1 }).toArray();
-  return docs.map(serialize);
-}
-
 export type LinkInput = {
   title: string;
   url: string;
@@ -58,106 +25,169 @@ export type LinkInput = {
   featured: boolean;
 };
 
+/** The shape SQLite hands back. */
+type Row = {
+  id: string;
+  title: string;
+  url: string;
+  icon: string | null;
+  image: string | null;
+  sort_order: number;
+  featured: number;
+};
+
+async function db(): Promise<D1Database> {
+  const { env } = await getCloudflareContext({ async: true });
+  const binding = env.DB;
+  if (!binding) {
+    throw new Error(
+      "The DB binding is missing. Check d1_databases in wrangler.jsonc.",
+    );
+  }
+  return binding;
+}
+
+function toLink(row: Row): Link {
+  return {
+    id: row.id,
+    title: row.title,
+    url: row.url,
+    icon: row.icon ?? undefined,
+    image: row.image ?? undefined,
+    order: row.sort_order,
+    featured: row.featured === 1,
+  };
+}
+
+/** All links, lowest order first. */
+export async function getLinks(): Promise<Link[]> {
+  const { results } = await (await db())
+    .prepare("SELECT * FROM links ORDER BY sort_order ASC")
+    .all<Row>();
+
+  return results.map(toLink);
+}
+
 /** Adds a link to the bottom of the list. */
 export async function createLink(input: LinkInput): Promise<void> {
-  const links = await linksCollection();
+  const conn = await db();
 
-  const last = await links.find({}).sort({ order: -1 }).limit(1).next();
-  const order = last ? last.order + 1 : 0;
+  const last = await conn
+    .prepare("SELECT MAX(sort_order) AS max FROM links")
+    .first<{ max: number | null }>();
 
-  const { insertedId } = await links.insertOne({
-    ...input,
-    order,
-  } as LinkDoc);
+  const id = crypto.randomUUID();
 
-  if (input.featured) await makeOnlyFeatured(insertedId.toString());
+  await conn
+    .prepare(
+      `INSERT INTO links (id, title, url, icon, image, sort_order, featured)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      input.title,
+      input.url,
+      input.icon ?? null,
+      input.image ?? null,
+      (last?.max ?? -1) + 1,
+      input.featured ? 1 : 0,
+    )
+    .run();
+
+  if (input.featured) await makeOnlyFeatured(id);
 }
 
 export async function updateLink(id: string, input: LinkInput): Promise<void> {
-  const links = await linksCollection();
-
-  // Optional fields are removed from the document when left blank, rather than
-  // being stored as empty strings.
-  const set: Record<string, unknown> = {
-    title: input.title,
-    url: input.url,
-    featured: input.featured,
-  };
-  const unset: Record<string, ""> = {};
-
-  for (const field of ["icon", "image"] as const) {
-    if (input[field]) set[field] = input[field];
-    else unset[field] = "";
-  }
-
-  await links.updateOne({ _id: new ObjectId(id) }, {
-    $set: set,
-    ...(Object.keys(unset).length ? { $unset: unset } : {}),
-  });
+  await (await db())
+    .prepare(
+      `UPDATE links
+          SET title = ?, url = ?, icon = ?, image = ?, featured = ?
+        WHERE id = ?`,
+    )
+    .bind(
+      input.title,
+      input.url,
+      input.icon ?? null,
+      input.image ?? null,
+      input.featured ? 1 : 0,
+      id,
+    )
+    .run();
 
   if (input.featured) await makeOnlyFeatured(id);
 }
 
 export async function deleteLink(id: string): Promise<void> {
-  const links = await linksCollection();
-  await links.deleteOne({ _id: new ObjectId(id) });
+  await (await db()).prepare("DELETE FROM links WHERE id = ?").bind(id).run();
 }
 
 /**
- * Only one link is ever featured, so featuring one clears the flag on the
- * rest. Passing `null` simply clears every flag.
+ * Only one link is ever featured, so featuring one clears the rest.
+ * Passing `null` simply clears every flag.
  */
 export async function makeOnlyFeatured(id: string | null): Promise<void> {
-  const links = await linksCollection();
+  const conn = await db();
 
-  await links.updateMany(
-    id ? { _id: { $ne: new ObjectId(id) } } : {},
-    { $set: { featured: false } },
-  );
+  const statements = [
+    conn.prepare("UPDATE links SET featured = 0 WHERE id IS NOT ?").bind(id),
+  ];
 
   if (id) {
-    await links.updateOne({ _id: new ObjectId(id) }, { $set: { featured: true } });
+    statements.push(
+      conn.prepare("UPDATE links SET featured = 1 WHERE id = ?").bind(id),
+    );
   }
+
+  await conn.batch(statements);
 }
 
 export async function toggleFeatured(id: string): Promise<void> {
-  const links = await linksCollection();
-  const doc = await links.findOne({ _id: new ObjectId(id) });
-  if (!doc) return;
+  const row = await (await db())
+    .prepare("SELECT featured FROM links WHERE id = ?")
+    .bind(id)
+    .first<{ featured: number }>();
 
-  await makeOnlyFeatured(doc.featured ? null : id);
+  if (!row) return;
+
+  await makeOnlyFeatured(row.featured === 1 ? null : id);
 }
 
 /**
- * Moves a link one place up or down by swapping `order` with its neighbour.
- * Does nothing when the link is already at the end it is moving towards.
+ * Moves a link one place up or down by swapping sort_order with its
+ * neighbour. Does nothing when it is already at that end.
  */
 export async function moveLink(
   id: string,
   direction: "up" | "down",
 ): Promise<void> {
-  const links = await linksCollection();
-  const current = await links.findOne({ _id: new ObjectId(id) });
+  const conn = await db();
+
+  const current = await conn
+    .prepare("SELECT id, sort_order FROM links WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; sort_order: number }>();
+
   if (!current) return;
 
-  const neighbour = await links
-    .find(
+  const neighbour = await conn
+    .prepare(
       direction === "up"
-        ? { order: { $lt: current.order } }
-        : { order: { $gt: current.order } },
+        ? `SELECT id, sort_order FROM links
+            WHERE sort_order < ? ORDER BY sort_order DESC LIMIT 1`
+        : `SELECT id, sort_order FROM links
+            WHERE sort_order > ? ORDER BY sort_order ASC LIMIT 1`,
     )
-    .sort({ order: direction === "up" ? -1 : 1 })
-    .limit(1)
-    .next();
+    .bind(current.sort_order)
+    .first<{ id: string; sort_order: number }>();
 
   if (!neighbour) return;
 
-  await links.updateOne(
-    { _id: current._id },
-    { $set: { order: neighbour.order } },
-  );
-  await links.updateOne(
-    { _id: neighbour._id },
-    { $set: { order: current.order } },
-  );
+  await conn.batch([
+    conn
+      .prepare("UPDATE links SET sort_order = ? WHERE id = ?")
+      .bind(neighbour.sort_order, current.id),
+    conn
+      .prepare("UPDATE links SET sort_order = ? WHERE id = ?")
+      .bind(current.sort_order, neighbour.id),
+  ]);
 }

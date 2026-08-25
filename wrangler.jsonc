@@ -3,9 +3,6 @@
   "name": "dv-links",
   "main": ".open-next/worker.js",
 
-  // nodejs_compat is what lets the MongoDB driver open a TCP/TLS connection
-  // to Atlas. With a compatibility date this recent it already includes the
-  // v2 behaviour, so the older nodejs_compat_v2 flag is not needed.
   "compatibility_date": "2026-08-20",
   "compatibility_flags": ["nodejs_compat"],
 
@@ -13,6 +10,17 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+
+  // The links database. Being a binding rather than a network connection, it
+  // needs no connection string, no password and no approved-address list.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dv-links-db",
+      "database_id": "914f77ca-12f1-417a-8a9e-7bad790bbdea",
+      "migrations_dir": "migrations"
+    }
+  ],
 
   "observability": {
     "enabled": true

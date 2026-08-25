@@ -8,30 +8,37 @@ links without touching code.
 - **`/admin`** — password-protected dashboard to add, edit, reorder, highlight
   and delete links.
 
-Links live in MongoDB, so anything changed in the dashboard shows on the public
-page immediately — both pages are rendered per request, never cached.
+Links live in a Cloudflare D1 database, so anything changed in the dashboard
+shows on the public page immediately — both pages are rendered per request,
+never cached.
 
 ## Running it locally
 
-Two terminal tabs, both from the project folder.
+First time only:
 
 ```bash
 npm install
-npm run db     # tab one: a real MongoDB on this machine. Leave running.
-npm run dev    # tab two: the site. Leave running.
+npm run db:migrate   # create the tables in the local database
+npm run db:seed      # put the starter links in
 ```
 
-Then open <http://localhost:3000/links> and <http://localhost:3000/admin>.
-
-`npm run db` exists so the site can be developed without depending on MongoDB
-Atlas being reachable. It stores data in `.local-db/`, which is git-ignored, and
-is completely separate from any hosted database.
-
-Useful extras:
+Then, to work on it:
 
 ```bash
-npm run seed    # put the starter links in. Safe to re-run; never overwrites edits.
-npm run links   # print what is currently in the database
+npm run dev
+```
+
+Open <http://localhost:3000/links> and <http://localhost:3000/admin>.
+
+There is no database server to start. D1 runs locally inside Wrangler, keeping
+its data in `.wrangler/state/`, which is git-ignored and entirely separate from
+the deployed database.
+
+Useful:
+
+```bash
+npm run links          # what is in the local database
+npm run links:remote   # what is in the live database
 ```
 
 ## Settings
@@ -41,12 +48,17 @@ new machine:
 
 | Name             | What it does                                              |
 | ---------------- | --------------------------------------------------------- |
-| `MONGODB_URI`    | Database connection string                                 |
-| `MONGODB_DB`     | Database name — `damanvirtual`                             |
 | `ADMIN_PASSWORD` | The `/admin` password                                      |
 | `AUTH_SECRET`    | Random string that signs the login cookie                  |
 
-In deployment the same four are set as Cloudflare secrets, not as files.
+The database needs no settings at all — D1 is attached as a binding in
+`wrangler.jsonc`, so there is no connection string or password to manage.
+
+In deployment both values are set as Cloudflare secrets rather than files:
+
+```bash
+npx wrangler secret put ADMIN_PASSWORD
+```
 
 ## Deploying
 
@@ -59,26 +71,29 @@ npm run preview   # run the real Workers build locally first
 npm run deploy    # build and publish
 ```
 
-Secrets are set once per environment:
+Schema changes go in `migrations/` and are applied with:
 
 ```bash
-npx wrangler secret put MONGODB_URI
+npm run db:migrate:remote
 ```
 
-`wrangler.jsonc` sets `nodejs_compat` with a 2026 compatibility date. Both are
-required — that is what allows the MongoDB driver to open a TCP/TLS connection
-from the Workers runtime. The connection pool is deliberately capped at one per
-isolate in `lib/mongodb.ts`, with a 5s server-selection timeout so database
-problems fail fast instead of hanging the page.
+### Why D1, and what it costs you
 
-**Atlas network access:** Workers have no fixed IP addresses, so Atlas must be
-set to allow access from anywhere (`0.0.0.0/0`). That leaves the database
-password as the protecting factor, so it should be strong and rotated if it has
-ever been shared.
+The project originally used MongoDB Atlas. It was replaced because Atlas is
+reached over the network, which means a connection string, a database password
+and an approved-IP list — and Workers have no fixed IP addresses, so that list
+has to be opened to the world. D1 is attached directly to the Worker as a
+binding, so none of that exists: no credentials to leak, no network path to
+secure, and lower latency.
+
+The tradeoff is that **D1 only runs on Cloudflare**. If this is ever moved to
+Vercel or elsewhere, the database has to move too. That is contained work rather
+than a rewrite: every query lives in `lib/links.ts` and nothing else touches the
+database.
 
 ## How the data is shaped
 
-One `links` collection. Each document:
+One `links` table, defined in `migrations/0001_create_links.sql`:
 
 | Field      | Notes                                                        |
 | ---------- | ------------------------------------------------------------ |
@@ -86,7 +101,7 @@ One `links` collection. Each document:
 | `url`      | Normalised on save; only http, https, mailto and tel allowed  |
 | `icon`     | Optional. One of the names in `components/link-icon.tsx`      |
 | `image`    | Optional. An uploaded square image as a data URI              |
-| `order`    | Ascending; reordering swaps this value with a neighbour       |
+| `sort_order` | Ascending; reordering swaps this value with a neighbour     |
 | `featured` | Only ever true on one link — setting it clears the others     |
 
 `image` takes priority over `icon`. Uploads are cropped to a centred square and
@@ -117,5 +132,5 @@ rings only.
 
 ## Tech
 
-Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · MongoDB · Cloudflare
-Workers
+Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · Cloudflare D1 ·
+Cloudflare Workers
