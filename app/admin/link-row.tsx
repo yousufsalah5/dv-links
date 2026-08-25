@@ -44,22 +44,37 @@ export function LinkRow({
         link.featured ? "border-dv-teal/40" : "border-dv-line"
       }`}
     >
-      <div className="flex items-center gap-3 px-4 py-3">
-        <LinkIcon
-          name={link.icon}
-          className={`size-4 shrink-0 ${
-            link.featured ? "text-dv-teal" : "text-dv-grey"
-          }`}
-        />
+      {/* On a phone the controls drop to their own row, so long titles and
+          addresses get the full width instead of being cut to a few letters. */}
+      <div className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-6 shrink-0 items-center justify-center">
+            {link.image ? (
+              // eslint-disable-next-line @next/next/no-img-element -- a data URI, already sized
+              <img
+                src={link.image}
+                alt=""
+                className="size-6 rounded-[6px] object-cover"
+              />
+            ) : (
+              <LinkIcon
+                name={link.icon}
+                className={`size-4 ${
+                  link.featured ? "text-dv-teal" : "text-dv-grey"
+                }`}
+              />
+            )}
+          </span>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm text-dv-white">{link.title}</p>
-          <p className="truncate text-xs font-light text-dv-grey/60">
-            {link.url}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-dv-white">{link.title}</p>
+            <p className="truncate text-xs font-light text-dv-grey/60">
+              {link.url}
+            </p>
+          </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 sm:ml-auto">
           <IconAction
             action={moveLinkAction}
             id={link.id}

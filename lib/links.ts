@@ -7,6 +7,8 @@ export type LinkDoc = {
   title: string;
   url: string;
   icon?: string;
+  /** An uploaded square image, held as a data URI. Takes priority over `icon`. */
+  image?: string;
   order: number;
   featured: boolean;
 };
@@ -17,6 +19,7 @@ export type Link = {
   title: string;
   url: string;
   icon?: string;
+  image?: string;
   order: number;
   featured: boolean;
 };
@@ -34,6 +37,7 @@ function serialize(doc: LinkDoc): Link {
     title: doc.title,
     url: doc.url,
     icon: doc.icon,
+    image: doc.image,
     order: doc.order,
     featured: doc.featured,
   };
@@ -50,6 +54,7 @@ export type LinkInput = {
   title: string;
   url: string;
   icon?: string;
+  image?: string;
   featured: boolean;
 };
 
@@ -71,18 +76,24 @@ export async function createLink(input: LinkInput): Promise<void> {
 export async function updateLink(id: string, input: LinkInput): Promise<void> {
   const links = await linksCollection();
 
-  await links.updateOne(
-    { _id: new ObjectId(id) },
-    {
-      $set: {
-        title: input.title,
-        url: input.url,
-        featured: input.featured,
-        ...(input.icon ? { icon: input.icon } : {}),
-      },
-      ...(input.icon ? {} : { $unset: { icon: "" } }),
-    },
-  );
+  // Optional fields are removed from the document when left blank, rather than
+  // being stored as empty strings.
+  const set: Record<string, unknown> = {
+    title: input.title,
+    url: input.url,
+    featured: input.featured,
+  };
+  const unset: Record<string, ""> = {};
+
+  for (const field of ["icon", "image"] as const) {
+    if (input[field]) set[field] = input[field];
+    else unset[field] = "";
+  }
+
+  await links.updateOne({ _id: new ObjectId(id) }, {
+    $set: set,
+    ...(Object.keys(unset).length ? { $unset: unset } : {}),
+  });
 
   if (input.featured) await makeOnlyFeatured(id);
 }

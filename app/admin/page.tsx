@@ -38,7 +38,7 @@ export default async function AdminPage() {
         <form action={logoutAction}>
           <button
             type="submit"
-            className="text-xs text-dv-grey transition-colors hover:text-dv-white"
+            className="text-xs whitespace-nowrap text-dv-grey transition-colors hover:text-dv-white"
           >
             Sign out
           </button>

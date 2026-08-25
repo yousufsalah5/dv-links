@@ -10,7 +10,7 @@ export default async function LinksPage() {
   const links = await getLinks();
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden px-6 pt-16 pb-8 sm:pt-20">
+    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden px-6 pt-12 pb-8 sm:pt-16">
       {/* A single, very quiet teal halo behind the mark. The only ornament. */}
       <div
         aria-hidden
@@ -23,25 +23,26 @@ export default async function LinksPage() {
 
       <div className="relative flex w-full max-w-[400px] flex-1 flex-col">
         <header className="flex flex-col items-center text-center">
+          {/* The approved stacked lockup: mark plus wordmark in one piece, so
+              the name is set in the real brand weight rather than in web type.
+              h1 carries the name for screen readers and search engines. */}
+          <h1 className="sr-only">Daman Virtual</h1>
+
           <Image
-            src="/brand/dv-mark.png"
+            src="/brand/dv-lockup.png"
             alt="Daman Virtual"
-            width={734}
-            height={734}
+            width={1349}
+            height={1271}
             priority
-            className="h-[88px] w-[88px]"
+            className="h-auto w-[150px] sm:w-[178px]"
           />
 
-          <h1 className="mt-7 text-[1.375rem] leading-none font-medium tracking-[0.18em] text-dv-white uppercase">
-            Daman Virtual
-          </h1>
-
-          <p className="mt-3.5 text-[0.75rem] leading-none font-light tracking-[0.13em] text-dv-grey">
+          <p className="mt-6 text-[0.75rem] leading-none font-light tracking-[0.13em] text-dv-grey sm:mt-7">
             Seamless. Secure. Safeguarded.
           </p>
         </header>
 
-        <div className="mt-10 h-px w-full bg-dv-line" />
+        <div className="mt-9 h-px w-full bg-dv-line sm:mt-10" />
 
         {links.length === 0 ? (
           <p className="mt-10 text-center text-sm font-light text-dv-grey">
@@ -82,14 +83,27 @@ function LinkButton({ link }: { link: Link }) {
       rel="noopener noreferrer"
       className={`${base} ${tone}`}
     >
-      <LinkIcon
-        name={link.icon}
-        className={`size-[18px] shrink-0 transition-colors duration-200 ${
-          link.featured
-            ? "text-dv-teal"
-            : "text-dv-grey group-hover:text-dv-white"
-        }`}
-      />
+      {/* A fixed slot, so titles line up whether a link uses a line icon or an
+          uploaded image. */}
+      <span className="flex size-[26px] shrink-0 items-center justify-center">
+        {link.image ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a data URI, already cropped and sized
+          <img
+            src={link.image}
+            alt=""
+            className="size-[26px] rounded-[7px] object-cover"
+          />
+        ) : (
+          <LinkIcon
+            name={link.icon}
+            className={`size-[18px] transition-colors duration-200 ${
+              link.featured
+                ? "text-dv-teal"
+                : "text-dv-grey group-hover:text-dv-white"
+            }`}
+          />
+        )}
+      </span>
 
       <span
         className={`min-w-0 flex-1 truncate text-[0.9375rem] font-normal tracking-[0.02em] transition-colors duration-200 ${

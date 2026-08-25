@@ -47,18 +47,49 @@ function normaliseUrl(raw: string): string | null {
   }
 }
 
+/**
+ * The upload arrives as a data URI built in the browser, so it is treated as
+ * untrusted: only real image types are allowed through, and only up to a size
+ * a 128px thumbnail could plausibly reach. This keeps anything script-bearing
+ * (an SVG, say) out of the `src` on the public page.
+ */
+const MAX_IMAGE_BYTES = 400_000;
+const ALLOWED_IMAGE_TYPES = ["webp", "png", "jpeg", "jpg", "gif"];
+
+function readImage(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+
+  const match = /^data:image\/([a-z0-9+.-]+);base64,([A-Za-z0-9+/=]+)$/i.exec(
+    value,
+  );
+  if (!match) return null;
+  if (!ALLOWED_IMAGE_TYPES.includes(match[1].toLowerCase())) return null;
+  if (value.length > MAX_IMAGE_BYTES) return null;
+
+  return value;
+}
+
 function readForm(formData: FormData):
   | { ok: true; value: links.LinkInput }
   | { ok: false; error: string } {
   const title = String(formData.get("title") ?? "").trim();
   const url = normaliseUrl(String(formData.get("url") ?? ""));
   const icon = String(formData.get("icon") ?? "").trim();
+  const rawImage = String(formData.get("image") ?? "");
+  const image = readImage(rawImage);
 
   if (!title) return { ok: false, error: "Give the link a title." };
   if (!url) {
     return {
       ok: false,
       error: "That web address doesn't look right. Try something like https://damanvirtual.com",
+    };
+  }
+  if (rawImage.trim() && !image) {
+    return {
+      ok: false,
+      error: "That image couldn't be saved. Try a JPG or PNG under a few megabytes.",
     };
   }
 
@@ -68,6 +99,7 @@ function readForm(formData: FormData):
       title,
       url,
       icon: icon || undefined,
+      image: image ?? undefined,
       featured: formData.get("featured") === "on",
     },
   };

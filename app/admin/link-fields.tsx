@@ -2,6 +2,7 @@
 
 import { ICON_NAMES } from "@/components/link-icon";
 import type { Link } from "@/lib/links";
+import { ImageField } from "./image-field";
 import { fieldClass, labelClass } from "./ui";
 
 /** The title / address / icon / featured fields, shared by add and edit. */
@@ -52,6 +53,11 @@ export function LinkFields({ link }: { link?: Link }) {
           ))}
         </select>
       </div>
+
+      <ImageField
+        initial={link?.image}
+        fieldId={`image-${link?.id ?? "new"}`}
+      />
 
       <label className="flex items-center gap-2.5 text-sm font-light text-dv-grey">
         <input
